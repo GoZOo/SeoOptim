@@ -1,0 +1,78 @@
+<?php
+
+/**
+ * Implements hook_filter().
+ */
+function seooptim_filter($op, $delta = 0, $format = -1, $text = '', $cache_id = 0) {
+  switch ($op) {
+    case 'list':
+      return array(0 => t('SEO Optim Filter'));
+
+    case 'description':
+      return t('Make SEO optimizations on content');
+
+    case "process":
+    	$text = preg_replace_callback('/<img[^>]*(alt="")[^>]*src="([^"]*)"[^>]*>/', '_seooptim_filter_imgalt', $text);
+      return $text;
+
+    default:
+      return $text;
+  }
+}
+
+function _seooptim_filter_imgalt($matches) {
+	$src = $matches[2];
+	$src_array = explode("/", $src);
+	$alt = array_pop($src_array); // get file name
+	$src_array = explode(".", $alt);
+	array_pop($src_array); // Delete extension
+	$alt = implode(' ', $src_array);
+	$alt = str_replace(array('-','_'), array(' ',' '), $alt);
+	return str_replace('alt=""', 'alt="' . check_markup($alt) . '"', $matches[0]);
+}
+
+function seooptim_preprocess_content_field(&$variables) { 
+	if($variables['field']['widget']['type'] == 'imagefield_widget') {
+		foreach($variables['items'] as $key=>$image) {
+			if(empty($variables['items'][$key]['data']['alt'])) {
+				if(!empty($variables['items'][$key]['data']['description'])) {
+					$alt = $variables['items'][$key]['data']['description'];
+				}
+				else if(!empty($variables['items'][$key]['data']['title'])) {
+					$alt = $variables['items'][$key]['data']['title'];
+				}
+				else {
+					$alt = $variables['node']->title;
+				}
+				$alt = check_plain($alt);
+				$variables['items'][$key]['data']['alt'] = $alt;
+				$variables['items'][$key]['view'] = str_replace('alt=""', 'alt="' . $alt . '"', $variables['items'][$key]['view']);
+			}
+		}
+	}
+}
+
+function seooptim_preprocess_node(&$variables) {
+	foreach($variables as $key=>$value) {
+		if(strpos($key, 'field_') !== FALSE && is_array($value)) {
+			if(isset($value[0]['fid']) && strpos($value[0]['filemime'], 'image') !== FALSE) { // It's an imagefield
+				foreach($value as $itimage=>$image) {
+					if(empty($variables[$key][$itimage]['data']['alt'])) {
+						if(!empty($variables[$key][$itimage]['data']['description'])) {
+							$alt = $variables[$key][$itimage]['data']['description'];
+						}
+						else if(!empty($variables[$key][$itimage]['data']['title'])) {
+							$alt = $variables[$key][$itimage]['data']['title'];
+						}
+						else {
+							$alt = $variables['title'];
+						}
+						$alt = check_plain($alt);
+						$variables[$key][$itimage]['data']['alt'] = $alt;
+						$variables[$key][$itimage]['view'] = str_replace('alt=""', 'alt="'. $alt .'"', $variables[$key][$itimage]['view']);
+					}
+				}
+			}
+		}
+	}
+}

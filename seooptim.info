@@ -1,0 +1,4 @@
+name = Seo Optimizations
+description = Optimisations for SEO
+package = Meta tags
+core = 6.x
