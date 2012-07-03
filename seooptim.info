@@ -1,4 +1,5 @@
 name = Seo Optimizations
 description = Optimisations for SEO
-package = Meta tags
-core = 6.x
+core = 7.x
+php = 5
+package = 'SEO'

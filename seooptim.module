@@ -1,23 +1,23 @@
 <?php
 
 /**
+ * Implements hook_filter_info().
+ */
+function seooptim_filter_info() {
+  $filters['seooptim_filter'] = array(
+    'title' => t('SEO Optim Filter'),
+    'description' => t('Make SEO optimizations on content.'),
+    'process callback' => '_seooptim_filter',
+  );
+  return $filters;
+
+}
+/**
  * Implements hook_filter().
  */
-function seooptim_filter($op, $delta = 0, $format = -1, $text = '', $cache_id = 0) {
-  switch ($op) {
-    case 'list':
-      return array(0 => t('SEO Optim Filter'));
-
-    case 'description':
-      return t('Make SEO optimizations on content');
-
-    case "process":
-    	$text = preg_replace_callback('/<img[^>]*(alt="")[^>]*src="([^"]*)"[^>]*>/', '_seooptim_filter_imgalt', $text);
-      return $text;
-
-    default:
-      return $text;
-  }
+function _seooptim_filter($text, $filter) {
+  $text = preg_replace_callback('/<img[^>]*(alt="")[^>]*src="([^"]*)"[^>]*>/', '_seooptim_filter_imgalt', $text);
+  return $text;
 }
 
 function _seooptim_filter_imgalt($matches) {
@@ -28,10 +28,10 @@ function _seooptim_filter_imgalt($matches) {
 	array_pop($src_array); // Delete extension
 	$alt = implode(' ', $src_array);
 	$alt = str_replace(array('-','_'), array(' ',' '), $alt);
-	return str_replace('alt=""', 'alt="' . check_markup($alt) . '"', $matches[0]);
+	return str_replace('alt=""', 'alt="' . check_markup($alt, 'plain_text') . '"', $matches[0]);
 }
 
-function seooptim_preprocess_content_field(&$variables) { 
+function seooptim_preprocess_content_field(&$variables) {
 	if($variables['field']['widget']['type'] == 'imagefield_widget') {
 		foreach($variables['items'] as $key=>$image) {
 			if(empty($variables['items'][$key]['data']['alt'])) {
@@ -45,31 +45,39 @@ function seooptim_preprocess_content_field(&$variables) {
 					$alt = $variables['node']->title;
 				}
 				$alt = check_plain($alt);
-				$variables['items'][$key]['data']['alt'] = $alt;
+				//$variables['items'][$key]['data']['alt'] = $alt;
 				$variables['items'][$key]['view'] = str_replace('alt=""', 'alt="' . $alt . '"', $variables['items'][$key]['view']);
 			}
 		}
 	}
 }
 
-function seooptim_preprocess_node(&$variables) {
-	foreach($variables as $key=>$value) {
-		if(strpos($key, 'field_') !== FALSE && is_array($value)) {
-			if(isset($value[0]['fid']) && strpos($value[0]['filemime'], 'image') !== FALSE) { // It's an imagefield
-				foreach($value as $itimage=>$image) {
-					if(empty($variables[$key][$itimage]['data']['alt'])) {
-						if(!empty($variables[$key][$itimage]['data']['description'])) {
-							$alt = $variables[$key][$itimage]['data']['description'];
+/**
+ * Implements hook_node_view_alter().
+ */
+function seooptim_node_view_alter(&$build) {
+	foreach($build as $field_name=>$field) {
+		if(is_array($field)) {
+			if($field['#field_type'] == 'image') { // It's an imagefield
+        $node = $build['#node'];
+				foreach($field['#items'] as $itimage=>$image) {
+					if(empty($image['alt'])) {
+						if(!empty($image['description'])) {
+							$alt = $image['description'];
 						}
-						else if(!empty($variables[$key][$itimage]['data']['title'])) {
-							$alt = $variables[$key][$itimage]['data']['title'];
+						else if(!empty($image['title'])) {
+							$alt = $image['title'];
 						}
 						else {
-							$alt = $variables['title'];
+							$alt = $node->title;
 						}
 						$alt = check_plain($alt);
-						$variables[$key][$itimage]['data']['alt'] = $alt;
-						$variables[$key][$itimage]['view'] = str_replace('alt=""', 'alt="'. $alt .'"', $variables[$key][$itimage]['view']);
+						$build[$field_name]['#items'][$itimage]['alt'] = $alt;
+            if(empty($build[$field_name][$itimage]['#item']['alt'])) {
+              $build[$field_name][$itimage]['#item']['alt'] = $alt;
+            }
+            //$build['node']->{$field_name}['und'][$itimage]['alt'] = $alt;
+						//$build[$field_name][$itimage]['view'] = str_replace('alt=""', 'alt="'. $alt .'"', $build[$field_name][$itimage]['view']);
 					}
 				}
 			}
